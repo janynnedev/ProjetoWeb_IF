@@ -1,0 +1,197 @@
+@model IEnumerable<Projeto1_IF.Models.TbProfissional>
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Index</h1>
+
+<p>
+    <a asp-action="Create">Create New</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.IdTipoProfissional)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.IdContrato)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.IdTipoAcesso)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.IdCidade)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.IdUser)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Nome)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Cpf)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.CrmCrn)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Especialidade)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Logradouro)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Numero)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Bairro)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Cep)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Cidade)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Estado)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Ddd1)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Ddd2)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Telefone1)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Telefone2)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Salario)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.IdCidadeNavigation)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.IdContratoNavigation)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.IdTipoAcessoNavigation)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.TbHoraPacienteProfissional)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.TbMedicoPaciente)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.TbPergunta)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.TbReceitaAlimentarPadrao)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.TbReceitaMedicaPadrao)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>
+                @Html.DisplayFor(model => item.IdTipoProfissional)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.IdContrato)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.IdTipoAcesso)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.IdCidade)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.IdUser)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Nome)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Cpf)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.CrmCrn)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Especialidade)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Logradouro)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Numero)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Bairro)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Cep)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Cidade)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Estado)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Ddd1)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Ddd2)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Telefone1)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Telefone2)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.Salario)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.IdCidadeNavigation)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.IdContratoNavigation)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.IdTipoAcessoNavigation)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.TbHoraPacienteProfissional)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.TbMedicoPaciente)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.TbPergunta)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.TbReceitaAlimentarPadrao)
+            </td>
+            <td>
+                @Html.DisplayFor(model => item.TbReceitaMedicaPadrao)
+            </td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.IdProfissional">Edit</a> |
+                <a asp-action="Details" asp-route-id="@item.IdProfissional">Details</a> |
+                <a asp-action="Delete" asp-route-id="@item.IdProfissional">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

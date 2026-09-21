@@ -12,6 +12,7 @@ namespace Projeto1_IF.Models;
 public partial class TbPlano
 {
     [Key]
+    [Display(Name = "Plano")]
     public int IdPlano { get; set; }
 
     [Required]

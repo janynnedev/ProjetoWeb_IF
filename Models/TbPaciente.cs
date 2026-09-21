@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.EntityFrameworkCore;
 
 namespace Projeto1_IF.Models;
@@ -31,11 +32,12 @@ public partial class TbPaciente
     [StringLength(15)]
     [Unicode(false)]
     public string Cpf { get; set; }
-
+    [Display(Name = "Data de Nascimento")]
     public DateOnly DataNascimento { get; set; }
 
     [StringLength(100)]
     [Unicode(false)]
+    [Display(Name = "Nome do Responsável")]
     public string NomeResponsavel { get; set; }
 
     [Required]
@@ -52,57 +54,60 @@ public partial class TbPaciente
     [StringLength(50)]
     [Unicode(false)]
     public string Bairro { get; set; }
-
+    [Display(Name = "Cidade")]
     public int? IdCidade { get; set; }
 
     [StringLength(25)]
     [Unicode(false)]
+    [Display(Name = "Telefone Residencial")]
     public string TelResidencial { get; set; }
 
     [StringLength(25)]
     [Unicode(false)]
+    [Display(Name = "Telefone Comercial")]
     public string TelComercial { get; set; }
 
     [StringLength(25)]
     [Unicode(false)]
+    [Display(Name = "Telefone Celular")]
     public string TelCelular { get; set; }
 
     [StringLength(30)]
     [Unicode(false)]
     public string Profissao { get; set; }
-
+    [Display(Name = "Atleta")]
     public bool? FlgAtleta { get; set; }
-
+    [Display(Name = "Gestante")]
     public bool? FlgGestante { get; set; }
-
+    [ValidateNever]
     [ForeignKey("IdCidade")]
     [InverseProperty("TbPaciente")]
     public virtual TbCidade IdCidadeNavigation { get; set; }
-
+    [ValidateNever]
     [InverseProperty("IdPacienteNavigation")]
     public virtual ICollection<TbAntropometria> TbAntropometria { get; set; } = new List<TbAntropometria>();
-
+    [ValidateNever]
     [InverseProperty("IdPacienteNavigation")]
     public virtual ICollection<TbEscalaBristolPacienteConsulta> TbEscalaBristolPacienteConsulta { get; set; } = new List<TbEscalaBristolPacienteConsulta>();
-
+    [ValidateNever]
     [InverseProperty("IdPacienteNavigation")]
     public virtual ICollection<TbExameXPacientes> TbExameXPacientes { get; set; } = new List<TbExameXPacientes>();
-
+    [ValidateNever]
     [InverseProperty("IdPacienteNavigation")]
     public virtual ICollection<TbHistoriaPatologica> TbHistoriaPatologica { get; set; } = new List<TbHistoriaPatologica>();
-
+    [ValidateNever]
     [InverseProperty("IdPacienteNavigation")]
     public virtual ICollection<TbHistoricoAlimentarNutricional> TbHistoricoAlimentarNutricional { get; set; } = new List<TbHistoricoAlimentarNutricional>();
-
+    [ValidateNever]
     [InverseProperty("IdPacienteNavigation")]
     public virtual ICollection<TbHistoricoDoencaAtual> TbHistoricoDoencaAtual { get; set; } = new List<TbHistoricoDoencaAtual>();
-
+    [ValidateNever]
     [InverseProperty("IdPacienteNavigation")]
     public virtual ICollection<TbHistoricoSocialAlimentar> TbHistoricoSocialAlimentar { get; set; } = new List<TbHistoricoSocialAlimentar>();
-
+    [ValidateNever]
     [InverseProperty("IdPacienteNavigation")]
     public virtual ICollection<TbHoraPacienteProfissional> TbHoraPacienteProfissional { get; set; } = new List<TbHoraPacienteProfissional>();
-
+    [ValidateNever]
     [InverseProperty("IdPacienteNavigation")]
     public virtual ICollection<TbMedicoPaciente> TbMedicoPaciente { get; set; } = new List<TbMedicoPaciente>();
 }
