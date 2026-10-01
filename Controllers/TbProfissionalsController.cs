@@ -1,203 +1,242 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
-using Projeto1_IF.Models;
+using Projeto1_IF.Authorization;
+using Projeto1_IF.Data;
+using System.Linq.Expressions;
 using System.Data;
-using System.Runtime.ConstrainedExecution;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+using Projeto1_IF.Models;
+using Projeto1_IF.Services;
 
-[Authorize]
+[Authorize(Roles = AppRoles.Medico + "," + AppRoles.Nutricionista + "," +
+    AppRoles.GerenteMedico + "," + AppRoles.GerenteNutricionista + "," + AppRoles.GerenteGeral)]
 public class TbProfissionalsController : Controller
 {
     private readonly db_IFContext _context;
+    private readonly ILogger<TbProfissionalsController> _logger;
+    private readonly ApplicationDbContext _identityContext;
+    private readonly ICurrentProfessionalService _currentProfessional;
+    private readonly LocationService _locations;
 
-    public TbProfissionalsController(db_IFContext context)
+    public TbProfissionalsController(db_IFContext context, ICurrentProfessionalService currentProfessional, ApplicationDbContext identityContext,
+        ILogger<TbProfissionalsController> logger, LocationService locations)
     {
         _context = context;
+        _locations = locations;
+        _logger = logger;
+        _identityContext = identityContext;
+        _currentProfessional = currentProfessional;
     }
 
-    // GET: TBPROFISSIONALS
-    public async Task<IActionResult> Index()    
+    private bool IsManager => User.IsInRole(AppRoles.GerenteGeral)
+        || User.IsInRole(AppRoles.GerenteMedico)
+        || User.IsInRole(AppRoles.GerenteNutricionista);
+
+    // Consulta Identity de usuário/Role.
+    private IQueryable<string> ManagedUserIds()
     {
-        var db_IFContext = _context.TbProfissional.Include(t => t.IdCidadeNavigation).Include(t => t.IdContratoNavigation).Include(t => t.IdTipoAcessoNavigation);
-        return View(await db_IFContext.ToListAsync());
+        var managesDoctors = User.IsInRole(AppRoles.GerenteMedico);
+        var managesNutritionists = User.IsInRole(AppRoles.GerenteNutricionista);
+        return (from user in _identityContext.Users
+                join membership in _identityContext.UserRoles on user.Id equals membership.UserId
+                join role in _identityContext.Roles on membership.RoleId equals role.Id
+                where (managesDoctors && role.Name == AppRoles.Medico)
+                    || (managesNutritionists && role.Name == AppRoles.Nutricionista)
+                select user.Id).Distinct();
     }
 
-    // GET: TBPROFISSIONALS/Details/5
-    public async Task<IActionResult> Details(int? idprofissional)
+    public async Task<IActionResult> Index()
     {
-        if (idprofissional == null)
+        if (!IsManager) return Forbid();
+        var professionals = _context.TbProfissional.AsNoTracking();
+        if (!User.IsInRole(AppRoles.GerenteGeral))
         {
-            return NotFound();
+            var userIds = await ManagedUserIds().ToListAsync();
+            professionals = professionals.Where(p => userIds.Contains(p.IdUser));
         }
-
-        TbProfissional? tbprofissional = await _context.TbProfissional
-            .Include(t => t.IdCidadeNavigation)
-            .Include(t => t.IdContratoNavigation)
-            .Include(t => t.IdTipoAcessoNavigation)
-            .FirstOrDefaultAsync(m => m.IdProfissional == idprofissional);
-        if (tbprofissional == null)
-        {
-            return NotFound();
-        }
-
-        return View(tbprofissional);
+        return View(await professionals
+            .Include(p => p.IdCidadeNavigation)
+            .Include(p => p.IdContratoNavigation)
+            .Include(p => p.IdTipoAcessoNavigation)
+            .OrderBy(p => p.Nome).ToListAsync());
     }
+    public IActionResult Create() => Forbid();
 
-    // GET: TBPROFISSIONALS/Create
-    public IActionResult Create()
-    {
-        ViewData["IdCidade"] = new SelectList(_context.TbCidade, "IdCidade", "Nome");
-        ViewData["IdPlano"] = new SelectList(_context.TbPlano, "IdPlano", "Nome");
-        ViewData["IdTipoAcesso"] = new SelectList(_context.TbTipoAcesso, "IdTipoAcesso", "Nome");
-
-        return View();
-    }
-
-    // POST: TBPROFISSIONALS/Create
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create([Bind("IdTipoProfissional,IdTipoAcesso,IdCidade,IdUser,Nome,Cpf,CrmCrn,Especialidade,Logradouro,Numero,Bairro,Cep,Cidade,Estado,Ddd1,Ddd2,Telefone1,Telefone2,Salario")] TbProfissional tbprofissional, [Bind("IdPlano")] TbContrato IdContratoNavigation)
+    public IActionResult Create(TbProfissional professional) => Forbid();
+
+    [Authorize(Roles = AppRoles.GerenteMedico + "," + AppRoles.GerenteNutricionista + "," + AppRoles.GerenteGeral)]
+    public async Task<IActionResult> Delete(int? id)
     {
-        ModelState.Remove("IdUser");
+        if (!IsManager) return Forbid();
+        if (id == null) return NotFound();
+        var professional = await _context.TbProfissional.AsNoTracking()
+            .SingleOrDefaultAsync(p => p.IdProfissional == id);
+        if (professional == null) return NotFound();
+        if (!await CanAccessAsync(id)) return Forbid();
+        return await DeleteViewAsync(professional);
+    }
+
+    [HttpPost, ActionName("Delete")]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = AppRoles.GerenteMedico + "," + AppRoles.GerenteNutricionista + "," + AppRoles.GerenteGeral)]
+    public async Task<IActionResult> DeleteConfirmed(int? id)
+    {
+        if (!IsManager) return Forbid();
+        if (id == null) return NotFound();
+        TbProfissional? professional = null;
         try
         {
-            if (ModelState.IsValid)
-            {
-                IdContratoNavigation.DataInicio = DateTime.UtcNow;
-                IdContratoNavigation.DataFim = IdContratoNavigation.DataInicio.Value.AddMonths(1);
-                _context.Add(IdContratoNavigation);
-                await _context.SaveChangesAsync();
+            // Revalidar e manter os vínculos estáveis até a remoção.
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            professional = await _context.TbProfissional.SingleOrDefaultAsync(p => p.IdProfissional == id);
+            if (professional == null) return NotFound();
+            if (!await CanAccessAsync(id)) return Forbid();
+            if (await HasPatientsAsync(professional.IdProfissional))
+                return BlockedDeleteView(professional,
+                    "Este profissional possui pacientes cadastrados e não pode ser excluído.");
+            if (await HasOtherDependenciesAsync(professional.IdProfissional))
+                return BlockedDeleteView(professional,
+                    "Este profissional possui consultas, perguntas ou receitas associadas e não pode ser excluído.");
 
-
-                var userManager = HttpContext.RequestServices.GetService<UserManager<IdentityUser>>();
-                if (userManager != null)
-                {
-                    var email = User.Identity?.Name;
-                    if (email != null)
-                    {
-                        var user = await userManager.FindByEmailAsync(email);
-                        if (user != null)
-                        {
-                            tbprofissional.IdUser = user.Id;
-                        }
-                        else return NotFound(new { message = "Usuário não encontrado." });
-                    }
-                    else return NotFound(new { message = "Email do usuário não encontrado." });
-                }
-                else return NotFound(new { message = "UserManager não encontrado." });
-
-                tbprofissional.IdContrato = IdContratoNavigation.IdContrato;
-                _context.Add(tbprofissional);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
-        } catch (DbUpdateException)
-        {
-            ModelState.AddModelError("", "Incapaz de salvar.");
+            // Remover apenas TbProfissional. Conta Identity, Roles e dados relacionados permanecem.
+            _context.TbProfissional.Remove(professional);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return RedirectToAction(nameof(Index));
         }
-        ViewData["IdCidade"] = new SelectList(_context.TbCidade, "IdCidade", "Nome", tbprofissional.IdCidade);
-        ViewData["IdPlano"] = new SelectList(_context.TbPlano, "IdPlano", "Nome", tbprofissional.IdContratoNavigation.IdPlano);
-        ViewData["IdTipoAcesso"] = new SelectList(_context.TbTipoAcesso, "IdTipoAcesso", "Nome", tbprofissional.IdTipoAcesso);
-        return View(tbprofissional);
+        catch (DbUpdateException exception)
+        {
+            _logger.LogError(exception, "Falha ao excluir profissional {ProfessionalId}.", id);
+            if (professional == null) return NotFound();
+            return await DeleteViewAsync(professional,
+                "Não foi possível excluir o profissional. Pode haver registros dependentes; nenhum dado relacionado foi removido.");
+        }
     }
 
-    // GET: TBPROFISSIONALS/Edit/5
-    public async Task<IActionResult> Edit(int? idprofissional)
+    private Task<bool> HasPatientsAsync(int professionalId) => _context.TbMedicoPaciente
+        .AnyAsync(link => link.IdProfissional == professionalId);
+
+    private Task<bool> HasOtherDependenciesAsync(int professionalId) => _context.TbProfissional
+        .Where(p => p.IdProfissional == professionalId)
+        .AnyAsync(p => p.TbHoraPacienteProfissional.Any() || p.TbPergunta.Any()
+            || p.TbReceitaMedicaPadrao.Any() || p.TbReceitaAlimentarPadrao.Any());
+
+    private IActionResult BlockedDeleteView(TbProfissional professional, string message)
     {
-        if (idprofissional == null)
-        {
-            return NotFound();
-        }
-
-        var tbprofissional = await _context.TbProfissional.Include(t => t.IdContratoNavigation).FirstOrDefaultAsync(t => t.IdProfissional == idprofissional);
-        if (tbprofissional == null)
-        {
-            return NotFound();
-        }
-        ViewData["IdCidade"] = new SelectList(_context.TbCidade, "IdCidade", "Nome", tbprofissional.IdCidade);
-        ViewData["IdContrato"] = new SelectList(_context.TbPlano, "IdPlano", "Nome", tbprofissional.IdContratoNavigation.IdPlano);
-        ViewData["IdTipoAcesso"] = new SelectList(_context.TbTipoAcesso, "IdTipoAcesso", "Nome", tbprofissional.IdTipoAcesso);
-        return View(tbprofissional);
+        ViewData["CanDelete"] = false;
+        ViewData["DeletionMessage"] = message;
+        return View("Delete", professional);
     }
 
-    // POST: TBPROFISSIONALS/Edit/5
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+    private async Task<IActionResult> DeleteViewAsync(TbProfissional professional, string? errorMessage = null)
+    {
+        if (await HasPatientsAsync(professional.IdProfissional))
+            return BlockedDeleteView(professional,
+                "Este profissional possui pacientes cadastrados e não pode ser excluído.");
+        if (await HasOtherDependenciesAsync(professional.IdProfissional))
+            return BlockedDeleteView(professional,
+                "Este profissional possui consultas, perguntas ou receitas associadas e não pode ser excluído.");
+        ViewData["CanDelete"] = true;
+        ViewData["DeletionMessage"] = errorMessage;
+        return View("Delete", professional);
+    }
+
+    private async Task<bool> CanAccessAsync(int? id)
+    {
+        if (id == null) return false;
+        if (User.IsInRole(AppRoles.GerenteGeral)) return true;
+        if (IsManager)
+        {
+            var userId = await _context.TbProfissional.AsNoTracking()
+                .Where(p => p.IdProfissional == id).Select(p => p.IdUser).SingleOrDefaultAsync();
+            return userId != null && await ManagedUserIds().AnyAsync(value => value == userId);
+        }
+        if (!User.IsInRole(AppRoles.Medico) && !User.IsInRole(AppRoles.Nutricionista)) return false;
+        var professional = await _currentProfessional.GetCurrentProfessionalAsync(User);
+        return professional != null && professional.IdProfissional == id;
+    }
+
+    public async Task<IActionResult> Details(int? id)
+    {
+        if (!await CanAccessAsync(id)) return Forbid();
+        var professional = await _context.TbProfissional.AsNoTracking()
+            .Include(p => p.IdCidadeNavigation)
+            .Include(p => p.IdContratoNavigation)
+            .Include(p => p.IdTipoAcessoNavigation)
+            .SingleOrDefaultAsync(p => p.IdProfissional == id);
+        if (professional == null) return Forbid();
+        return View(professional);
+    }
+
+    [HttpGet]
+    [Authorize(Roles = AppRoles.Medico + "," + AppRoles.Nutricionista)]
+    public async Task<IActionResult> MyProfile()
+    {
+        if (IsManager) return Forbid();
+        var professional = await _currentProfessional.GetCurrentProfessionalAsync(User);
+        if (professional == null) return Forbid();
+        return RedirectToAction(nameof(Edit), new { id = professional.IdProfissional });
+    }
+
+    public async Task<IActionResult> Edit(int? id)
+    {
+        if (!await CanAccessAsync(id)) return Forbid();
+        var professional = await _context.TbProfissional.AsNoTracking()
+            .SingleOrDefaultAsync(p => p.IdProfissional == id);
+        if (professional == null) return Forbid();
+        var stateId = await _context.TbCidade.Where(c => c.IdCidade == professional.IdCidade)
+            .Select(c => c.IdEstado).SingleOrDefaultAsync();
+        await LoadCitiesAsync(stateId, professional.IdCidade);
+        return View(professional);
+    }
+
     [HttpPost, ActionName("Edit")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditPost(int? idprofissional)
+    public async Task<IActionResult> EditPost(int? id, int? idEstado)
     {
-        if (idprofissional == null)
+        if (!await CanAccessAsync(id)) return Forbid();
+        var professional = await _context.TbProfissional.SingleOrDefaultAsync(p => p.IdProfissional == id);
+        if (professional == null) return Forbid();
+
+        // Somente gerentes podem incluir CPF.
+        var allowedFields = new List<Expression<Func<TbProfissional, object?>>>
         {
-            return NotFound();
-        }
-
-        var tbprofissional = await _context.TbProfissional.FirstOrDefaultAsync(s => s.IdProfissional == idprofissional);
-        if (await TryUpdateModelAsync<TbProfissional>(tbprofissional, "",
-            s => s.IdTipoProfissional, s => s.IdTipoAcesso, s => s.IdCidade, s => s.IdUser, s => s.Nome, s => s.Cpf, s => s.CrmCrn,
-            s => s.Especialidade, s => s.Logradouro, s => s.Numero, s => s.Bairro, s => s.Cep, s => s.Cidade, s => s.Estado, s => s.Ddd1,
-            s => s.Ddd2, s => s.Telefone1, s => s.Telefone2, s => s.Salario))
+            p => p.IdCidade, p => p.Nome, p => p.CrmCrn, p => p.Especialidade,
+            p => p.Logradouro, p => p.Numero, p => p.Bairro, p => p.Cep,
+            p => p.Cidade, p => p.Estado, p => p.Ddd1, p => p.Ddd2,
+            p => p.Telefone1, p => p.Telefone2
+        };
+        if (IsManager) allowedFields.Add(p => p.Cpf);
+        if (await TryUpdateModelAsync(professional, "", allowedFields.ToArray()))
+        {
+            foreach (var error in await _locations.ValidateAsync(idEstado, professional.IdCidade, required: true))
+                ModelState.AddModelError(error.Field, error.Message);
+            if (ModelState.IsValid)
             {
-
                 try
                 {
                     await _context.SaveChangesAsync();
-                    return RedirectToAction(nameof(Index));
+                    return RedirectToAction(nameof(Details), new { id = professional.IdProfissional });
                 }
                 catch (DbUpdateException)
                 {
-                    ModelState.AddModelError("", "Incapaz de salvar as mudanças");
+                    ModelState.AddModelError(string.Empty, "Não foi possível salvar as alterações.");
                 }
             }
-        ViewData["IdCidade"] = new SelectList(_context.TbCidade, "IdCidade", "Nome", tbprofissional.IdCidade);
-        ViewData["IdContrato"] = new SelectList(_context.TbPlano, "IdPlano", "Nome", tbprofissional.IdContratoNavigation.IdPlano);
-        ViewData["IdTipoAcesso"] = new SelectList(_context.TbTipoAcesso, "IdTipoAcesso", "Nome", tbprofissional.IdTipoAcesso);
-        return View(tbprofissional);
+        }
+        // Não deixar um valor de CPF fabricado reaparecer na tela após erro de validação.
+        if (!IsManager) ModelState.Remove(nameof(TbProfissional.Cpf));
+        await LoadCitiesAsync(idEstado, professional.IdCidade);
+        return View("Edit", professional);
     }
 
-    // GET: TBPROFISSIONALS/Delete/5
-    public async Task<IActionResult> Delete(int? idprofissional)
+    private async Task LoadCitiesAsync(int? stateId, int cityId)
     {
-        if (idprofissional == null)
-        {
-            return NotFound();
-        }
-
-        var tbProfissional = await _context.TbProfissional
-            .Include(t => t.IdCidadeNavigation)
-            .Include(t => t.IdContratoNavigation)
-            .Include(t => t.IdTipoAcessoNavigation)
-            .FirstOrDefaultAsync(m => m.IdProfissional == idprofissional);
-        if (tbProfissional == null)
-        {
-            return NotFound();
-        }
-
-        return View(tbProfissional);
-    }
-
-    // POST: TBPROFISSIONALS/Delete/5
-    [HttpPost, ActionName("Delete")]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteConfirmed(int? idprofissional)
-    {
-        var tbProfissional = await _context.TbProfissional.FindAsync(idprofissional);
-        if (tbProfissional != null)
-        {
-            _context.TbProfissional.Remove(tbProfissional);
-        }
-
-        await _context.SaveChangesAsync();
-        return RedirectToAction(nameof(Index));
-    }
-
-    private bool TbProfissionalExists(int? idprofissional)
-    {
-        return _context.TbProfissional.Any(e => e.IdProfissional == idprofissional);
+        ViewData["IdEstado"] = new SelectList(await _locations.GetStatesAsync(), "Id", "Nome", stateId);
+        ViewData["IdCidade"] = new SelectList(await _locations.GetCitiesByStateAsync(stateId), "Id", "Nome", cityId);
+        ViewData["SelectedStateId"] = stateId;
     }
 }

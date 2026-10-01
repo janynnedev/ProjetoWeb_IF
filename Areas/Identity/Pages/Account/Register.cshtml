@@ -27,6 +27,104 @@
                 <label asp-for="Input.ConfirmPassword">Confirm Password</label>
                 <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
             </div>
+            <div class="mb-3">
+                <label asp-for="Input.Kind" class="form-label"></label>
+                <select asp-for="Input.Kind" class="form-select">
+                    <option value="">Selecione a profissão</option>
+                    <option value="@((int)RegisterModel.ProfessionalKind.Medico)">Médico</option>
+                    <option value="@((int)RegisterModel.ProfessionalKind.Nutricionista)">Nutricionista</option>
+                </select>
+                <span asp-validation-for="Input.Kind" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.IdEstado" class="form-label"></label>
+                <select asp-for="Input.IdEstado" asp-items="Model.States" class="form-select" data-city-select="Input_IdCidade" data-cities-url="@Url.Action("Cities", "Locations")">
+                    <option value="">Selecione um estado</option>
+                </select>
+                <span asp-validation-for="Input.IdEstado" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.IdCidade" class="form-label"></label>
+                <select asp-for="Input.IdCidade" asp-items="Model.Cities" class="form-select" disabled="@(Model.Input?.IdEstado is not > 0)"><option value="">Selecione uma cidade</option></select>
+                <span asp-validation-for="Input.IdCidade" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.IdPlano" class="form-label"></label>
+                <select asp-for="Input.IdPlano" asp-items="Model.Plans" class="form-select" disabled="@(!Model.Plans.Any())">
+                    <option value="">@(Model.Plans.Any() ? "Selecione o plano" : "Selecione primeiro o tipo de profissional")</option>
+                </select>
+                <span asp-validation-for="Input.IdPlano" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Nome" class="form-label"></label>
+                <input asp-for="Input.Nome" class="form-control" />
+                <span asp-validation-for="Input.Nome" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Cpf" class="form-label"></label>
+                <input asp-for="Input.Cpf" class="form-control" />
+                <span asp-validation-for="Input.Cpf" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.CrmCrn" class="form-label"></label>
+                <input asp-for="Input.CrmCrn" class="form-control" />
+                <span asp-validation-for="Input.CrmCrn" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Especialidade" class="form-label"></label>
+                <input asp-for="Input.Especialidade" class="form-control" />
+                <span asp-validation-for="Input.Especialidade" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Logradouro" class="form-label"></label>
+                <input asp-for="Input.Logradouro" class="form-control" />
+                <span asp-validation-for="Input.Logradouro" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Numero" class="form-label"></label>
+                <input asp-for="Input.Numero" class="form-control" />
+                <span asp-validation-for="Input.Numero" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Bairro" class="form-label"></label>
+                <input asp-for="Input.Bairro" class="form-control" />
+                <span asp-validation-for="Input.Bairro" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Cep" class="form-label"></label>
+                <input asp-for="Input.Cep" class="form-control" />
+                <span asp-validation-for="Input.Cep" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Cidade" class="form-label"></label>
+                <input asp-for="Input.Cidade" class="form-control" />
+                <span asp-validation-for="Input.Cidade" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Estado" class="form-label"></label>
+                <input asp-for="Input.Estado" class="form-control" />
+                <span asp-validation-for="Input.Estado" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Ddd1" class="form-label"></label>
+                <input asp-for="Input.Ddd1" class="form-control" />
+                <span asp-validation-for="Input.Ddd1" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Ddd2" class="form-label"></label>
+                <input asp-for="Input.Ddd2" class="form-control" />
+                <span asp-validation-for="Input.Ddd2" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Telefone1" class="form-label"></label>
+                <input asp-for="Input.Telefone1" class="form-control" />
+                <span asp-validation-for="Input.Telefone1" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Input.Telefone2" class="form-label"></label>
+                <input asp-for="Input.Telefone2" class="form-control" />
+                <span asp-validation-for="Input.Telefone2" class="text-danger"></span>
+            </div>
             <button id="registerSubmit" type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
         </form>
     </div>
@@ -64,4 +162,26 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/state-cities.js" asp-append-version="true"></script>
+    <script>
+        (() => {
+            const plansByKind = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.PlansByKind));
+            const kind = document.getElementById('Input_Kind');
+            const plan = document.getElementById('Input_IdPlano');
+            function updatePlans() {
+                const previous = plan.value;
+                const options = plansByKind[kind.value] || [];
+                plan.replaceChildren(new Option(options.length ? 'Selecione o plano' : 'Selecione primeiro o tipo de profissional', ''));
+                for (const option of options) {
+                    plan.add(new Option(option.Nome, String(option.IdPlano)));
+                }
+                plan.disabled = options.length === 0;
+                if (options.some(option => String(option.IdPlano) === previous)) {
+                    plan.value = previous;
+                }
+            }
+            kind.addEventListener('change', updatePlans);
+            updatePlans();
+        })();
+    </script>
 }

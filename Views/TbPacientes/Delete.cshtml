@@ -6,7 +6,12 @@
 
 <h1>Deletar Paciente</h1>
 
-<h3>Você tem certeza que deseja deletar este paciente?</h3>
+<h3>Você tem certeza que deseja excluir este paciente da sua lista?</h3>
+<p>Se houver outro profissional associado, somente seu vínculo será removido. Sem outros vínculos, o paciente também será excluído, desde que os registros dependentes permitam.</p>
+@if (ViewData["ErrorMessage"] is string errorMessage)
+{
+    <p class="text-danger" role="alert">@errorMessage</p>
+}
 <div>
     <h4>Projeto1_IF.Models.TbPaciente</h4>
     <hr />
@@ -63,7 +68,7 @@
             @Html.DisplayNameFor(model => model.Etnia)
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Etnia)
+            @Projeto1_IF.Services.PatientRegistrationOptions.EthnicityDescription(Model.Etnia)
         </dd>
     </dl>
     <dl class="row">
@@ -127,7 +132,7 @@
             @Html.DisplayNameFor(model => model.FlgAtleta)
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.FlgAtleta)
+            @(Model.FlgAtleta == true ? "Sim" : "Não")
         </dd>
     </dl>
     <dl class="row">
@@ -135,12 +140,11 @@
             @Html.DisplayNameFor(model => model.FlgGestante)
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.FlgGestante)
+            @(Model.FlgGestante == true ? "Sim" : "Não")
         </dd>
     </dl>
     
-    <form asp-action="Delete">
-        <input type="hidden" asp-for="IdPaciente" />
+    <form asp-action="Delete" asp-route-id="@Model.IdPaciente" method="post">
         <input type="submit" value="Deletar" class="btn btn-danger" /> |
         <a asp-action="Index">Voltar</a>
     </form>

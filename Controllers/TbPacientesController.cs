@@ -1,179 +1,213 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Projeto1_IF.Authorization;
 using Projeto1_IF.Models;
+using Projeto1_IF.Services;
+using System.Data;
 
-[Authorize]
+[Authorize(Roles = AppRoles.Medico + "," + AppRoles.Nutricionista)]
 public class TbPacientesController : Controller
 {
     private readonly db_IFContext _context;
+    private readonly LocationService _locations;
+    private readonly ICurrentProfessionalService _currentProfessional;
+    private readonly ILogger<TbPacientesController> _logger;
 
-    public TbPacientesController(db_IFContext context)
+    public TbPacientesController(db_IFContext context, ICurrentProfessionalService currentProfessional,
+        ILogger<TbPacientesController> logger, LocationService locations)
     {
         _context = context;
+        _currentProfessional = currentProfessional;
+        _logger = logger;
+        _locations = locations;
     }
 
-    // GET: TBPACIENTES
-    public async Task<IActionResult> Index()    
+    private Task<TbProfissional?> GetProfessionalAsync()
     {
-        var db_IFContext = _context.TbPaciente.Include(t => t.IdCidadeNavigation);
-        return View(await _context.TbPaciente.ToListAsync());
+        // Gerentes não recebem CRUD de pacientes.
+        if (User.IsInRole(AppRoles.GerenteMedico) || User.IsInRole(AppRoles.GerenteNutricionista)
+            || User.IsInRole(AppRoles.GerenteGeral)
+            || (!User.IsInRole(AppRoles.Medico) && !User.IsInRole(AppRoles.Nutricionista)))
+            return Task.FromResult<TbProfissional?>(null);
+        return _currentProfessional.GetCurrentProfessionalAsync(User);
     }
 
-    // GET: TBPACIENTES/Details/5
-    public async Task<IActionResult> Details(int? id)
+    private IQueryable<TbPaciente> OwnedPatients(int professionalId)
     {
-        if (id == null)
-        {
-            return NotFound();
-        }
-
-        TbPaciente? tbpaciente = await _context.TbPaciente
-            .Include(t => t.IdCidadeNavigation)
-            .ThenInclude(e => e.IdEstadoNavigation)
-            .AsNoTracking()
-            .FirstOrDefaultAsync(m => m.IdPaciente == id);
-        if (tbpaciente == null)
-        {
-            return NotFound();
-        }
-
-        return View(tbpaciente);
+        return _context.TbPaciente.Where(patient => patient.TbMedicoPaciente
+            .Any(link => link.IdProfissional == professionalId));
     }
 
-    // GET: TBPACIENTES/Create
-    public IActionResult Create()
+    private async Task<TbPaciente?> GetOwnedPatientAsync(int? id, bool tracking = false)
     {
-        ViewData["IdCidade"] = new SelectList(_context.TbCidade, "IdCidade", "Nome");
+        var professional = await GetProfessionalAsync();
+        if (professional == null || id == null) return null;
+        var patients = OwnedPatients(professional.IdProfissional);
+        if (!tracking) patients = patients.AsNoTracking();
+        return await patients.Include(patient => patient.IdCidadeNavigation)
+            .ThenInclude(city => city.IdEstadoNavigation)
+            .SingleOrDefaultAsync(patient => patient.IdPaciente == id);
+    }
+
+    public async Task<IActionResult> Index()
+    {
+        var professional = await GetProfessionalAsync();
+        if (professional == null) return Forbid();
+        return View(await OwnedPatients(professional.IdProfissional).AsNoTracking()
+            .Include(patient => patient.IdCidadeNavigation).OrderBy(patient => patient.Nome).ToListAsync());
+    }
+
+    public async Task<IActionResult> Create()
+    {
+        if (await GetProfessionalAsync() == null) return Forbid();
+        await LoadCitiesAsync();
         return View();
     }
 
-    // POST: TBPACIENTES/Create
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Create([Bind("Nome,Rg,Cpf,DataNascimento,NomeResponsavel,Sexo,Etnia,Endereco,Bairro,IdCidade,TelResidencial,TelComercial,TelCelular,Profissao,FlgAtleta,FlgGestante")] TbPaciente tbpaciente)
+    public async Task<IActionResult> Create([Bind("Nome,Rg,Cpf,DataNascimento,NomeResponsavel,Sexo,Etnia,Endereco,Bairro,IdCidade,TelResidencial,TelComercial,TelCelular,Profissao,FlgAtleta,FlgGestante")] TbPaciente patient, int? idEstado)
     {
-        try
+        var professional = await GetProfessionalAsync();
+        if (professional == null) return Forbid();
+        await ValidateRegistrationAsync(idEstado, patient);
+        if (ModelState.IsValid)
         {
-            if (ModelState.IsValid)
+            // O formulário usa dois estados; normalizar somente no cadastro efetivamente salvo.
+            patient.FlgAtleta ??= false;
+            patient.FlgGestante ??= false;
+
+            var link = new TbMedicoPaciente
             {
-                _context.Add(tbpaciente);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
-           
-        } catch (DbUpdateException)
-        {
-            ModelState.AddModelError("", "Incapaz de salvar.");
-        }
-        ViewData["IdCidade"] = new SelectList(_context.TbCidade, "IdCidade", "Nome");
-        return View(tbpaciente);
-    }
-
-    // GET: TBPACIENTES/Edit/5
-    public async Task<IActionResult> Edit(int? id)
-    {
-        if (id == null)
-        {
-            return NotFound();
-        }
-
-        var tbpaciente = await _context.TbPaciente.FindAsync(id);
-        if (tbpaciente == null)
-        {
-            return NotFound();
-        }
-        ViewData["IdCidade"] = new SelectList(_context.TbCidade, "IdCidade", "Nome", tbpaciente.IdCidade);
-        return View(tbpaciente);
-    }
-
-    // POST: TBPACIENTES/Edit/5
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
-    [HttpPost, ActionName("Edit")]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditPost(int? id) 
-    {
-        if (id == null)
-        {
-            return NotFound();
-        }
-
-        var tbpaciente = await _context.TbPaciente.FirstOrDefaultAsync(s => s.IdPaciente == id);
-        if (tbpaciente == null)
-        {
-            return NotFound();
-        }
-        if (await TryUpdateModelAsync<TbPaciente>(
-            tbpaciente, "",
-            s => s.Nome, s => s.Rg, s => s.Cpf, s => s.DataNascimento, s => s.NomeResponsavel, s => s.Sexo,
-            s => s.Etnia, s => s.Endereco, s => s.Bairro, s => s.IdCidade, s => s.TelResidencial, s => s.TelComercial,
-            s => s.TelCelular, s => s.Profissao, s => s.FlgAtleta, s => s.FlgGestante))
-        {
-
+                IdProfissional = professional.IdProfissional,
+                IdPacienteNavigation = patient
+            };
+            _context.TbMedicoPaciente.Add(link);
             try
             {
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
-            catch (DbUpdateException)
+            catch (DbUpdateException exception)
             {
-                ModelState.AddModelError("", "Incapaz de salvar as mudanças");
+                _logger.LogError(exception, "Falha ao criar paciente e associação.");
+                ModelState.AddModelError(string.Empty, "Não foi possível salvar o paciente e seu vínculo.");
             }
         }
-        ViewData["IdCidade"] = new SelectList(_context.TbCidade, "IdCidade", "Nome", tbpaciente.IdCidade);
-        return View(tbpaciente);
+        await LoadCitiesAsync(idEstado, patient.IdCidade);
+        return View(patient);
     }
 
-    // GET: TBPACIENTES/Delete/5
+    public async Task<IActionResult> Details(int? id)
+    {
+        var patient = await GetOwnedPatientAsync(id);
+        if (patient == null) return Forbid();
+        return View(patient);
+    }
+
+    public async Task<IActionResult> Edit(int? id)
+    {
+        var patient = await GetOwnedPatientAsync(id);
+        if (patient == null) return Forbid();
+        await LoadCitiesAsync(patient.IdCidadeNavigation?.IdEstado, patient.IdCidade);
+        return View(patient);
+    }
+
+    [HttpPost, ActionName("Edit")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditPost(int? id, int? idEstado)
+    {
+        var patient = await GetOwnedPatientAsync(id, tracking: true);
+        if (patient == null) return Forbid();
+        if (await TryUpdateModelAsync(patient, "",
+            p => p.Nome, p => p.Rg, p => p.Cpf, p => p.DataNascimento, p => p.NomeResponsavel,
+            p => p.Sexo, p => p.Etnia, p => p.Endereco, p => p.Bairro, p => p.IdCidade,
+            p => p.TelResidencial, p => p.TelComercial, p => p.TelCelular, p => p.Profissao,
+            p => p.FlgAtleta, p => p.FlgGestante))
+        {
+            await ValidateRegistrationAsync(idEstado, patient);
+            if (ModelState.IsValid)
+            {
+                // NULL legado vira false apenas quando este formulário é salvo.
+                patient.FlgAtleta ??= false;
+                patient.FlgGestante ??= false;
+                try
+                {
+                    await _context.SaveChangesAsync();
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (DbUpdateException exception)
+                {
+                    _logger.LogError(exception, "Falha ao editar paciente.");
+                    ModelState.AddModelError(string.Empty, "Não foi possível salvar as alterações.");
+                }
+            }
+        }
+        await LoadCitiesAsync(idEstado, patient.IdCidade);
+        return View("Edit", patient);
+    }
+
     public async Task<IActionResult> Delete(int? id, bool? saveChangesError = false)
     {
-        if (id == null)
-        {
-            return NotFound();
-        }
-
-        var tbpaciente = await _context.TbPaciente
-            .Include(t => t.IdCidadeNavigation)
-            .ThenInclude(e => e.IdEstadoNavigation)
-            .AsNoTracking() 
-            .FirstOrDefaultAsync(m => m.IdPaciente == id);
-        if (tbpaciente == null)
-        {
-            return NotFound();
-        }
-
+        var patient = await GetOwnedPatientAsync(id);
+        if (patient == null) return Forbid();
         if (saveChangesError.GetValueOrDefault())
-        {
-            ViewData["ErrorMessage"] = "Falha ao excluir. Tente novamente.";
-        }
-        return View(tbpaciente);
+            ViewData["ErrorMessage"] = "Não foi possível excluir. O paciente e seu vínculo foram preservados. Pode haver registros dependentes.";
+        return View(patient);
     }
 
-    // POST: TBPACIENTES/Delete/5
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int? id)
     {
-        var tbpaciente = await _context.TbPaciente.FindAsync(id);
-        if (tbpaciente == null)
-        {
-            return RedirectToAction(nameof(Index));
-        }
-
+        var professional = await GetProfessionalAsync();
+        if (professional == null || id == null) return Forbid();
         try
         {
-            _context.TbPaciente.Remove(tbpaciente);
+            // Serializable protege a verificação de outros vínculos contra alterações concorrentes.
+            await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            var patient = await OwnedPatients(professional.IdProfissional)
+                .SingleOrDefaultAsync(patient => patient.IdPaciente == id);
+            if (patient == null) return Forbid();
+
+            var ownLinks = await _context.TbMedicoPaciente
+                .Where(link => link.IdPaciente == id && link.IdProfissional == professional.IdProfissional)
+                .ToListAsync();
+            var hasOtherProfessional = await _context.TbMedicoPaciente
+                .AnyAsync(link => link.IdPaciente == id && link.IdProfissional != professional.IdProfissional);
+            _context.TbMedicoPaciente.RemoveRange(ownLinks);
+            if (!hasOtherProfessional)
+                _context.TbPaciente.Remove(patient);
+
+            // Sem cascade presumido. Se outra FK impedir a exclusão, o rollback preserva tudo.
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             return RedirectToAction(nameof(Index));
         }
-        catch (DbUpdateException) {
-            return RedirectToAction(nameof(Delete), new { id = id, saveChangesError = true });
+        catch (DbUpdateException exception)
+        {
+            _logger.LogError(exception, "Falha ao excluir paciente ou remover associação.");
+            return RedirectToAction(nameof(Delete), new { id, saveChangesError = true });
         }
     }
 
+    private async Task ValidateRegistrationAsync(int? stateId, TbPaciente patient)
+    {
+        foreach (var error in await _locations.ValidateAsync(stateId, patient.IdCidade, required: false))
+            ModelState.AddModelError(error.Field, error.Message);
+        if (!PatientRegistrationOptions.IsValidEthnicity(patient.Etnia))
+            ModelState.AddModelError(nameof(TbPaciente.Etnia), "Selecione uma etnia válida.");
+        if (!PatientRegistrationOptions.IsValidSex(patient.Sexo))
+            ModelState.AddModelError(nameof(TbPaciente.Sexo), "Selecione F ou M.");
+    }
+
+    private async Task LoadCitiesAsync(int? stateId = null, int? cityId = null)
+    {
+        ViewData["IdEstado"] = new SelectList(await _locations.GetStatesAsync(), "Id", "Nome", stateId);
+        ViewData["IdCidade"] = new SelectList(await _locations.GetCitiesByStateAsync(stateId), "Id", "Nome", cityId);
+        ViewData["SelectedStateId"] = stateId;
+        ViewData["SexoOptions"] = PatientRegistrationOptions.SexOptions;
+    }
 }

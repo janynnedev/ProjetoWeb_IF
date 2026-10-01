@@ -45,13 +45,13 @@
 
             <div class="form-group">
                 <label asp-for="Sexo" class="control-label"></label>
-                <input asp-for="Sexo" class="form-control" />
+                <select asp-for="Sexo" asp-items="ViewBag.SexoOptions" class="form-control"><option value="">Selecione</option></select>
                 <span asp-validation-for="Sexo" class="text-danger"></span>
             </div>
 
             <div class="form-group">
                 <label asp-for="Etnia" class="control-label"></label>
-                <input asp-for="Etnia" class="form-control" />
+                <select asp-for="Etnia" asp-items="Projeto1_IF.Services.PatientRegistrationOptions.EthnicityOptions" class="form-control"><option value="">Selecione</option></select>
                 <span asp-validation-for="Etnia" class="text-danger"></span>
             </div>
 
@@ -68,10 +68,16 @@
             </div>
 
             <div class="form-group">
+                <label for="IdEstado" class="control-label">Estado</label>
+                @Html.DropDownList("IdEstado", (Microsoft.AspNetCore.Mvc.Rendering.SelectList)ViewBag.IdEstado, "Selecione um estado", new { @class = "form-control", data_city_select = "IdCidade", data_cities_url = Url.Action("Cities", "Locations") })
+                @Html.ValidationMessage("IdEstado", null, new { @class = "text-danger" })
+            </div>
+            <div class="form-group">
                 <label asp-for="IdCidade" class="control-label"></label>
-                <select asp-for="IdCidade" class="form-control" asp-items="ViewBag.IdCidade">
+                <select asp-for="IdCidade" class="form-control" asp-items="ViewBag.IdCidade" disabled="@(ViewData["SelectedStateId"] == null)">
                     <option value="">Selecione uma cidade</option>
                 </select>
+                <span asp-validation-for="IdCidade" class="text-danger"></span>
             </div>
 
             <div class="form-group">
@@ -100,13 +106,13 @@
 
             <div class="form-group form-check">
                 <label class="form-check-label">
-                    <input class="form-check-input" asp-for="FlgAtleta" /> @Html.DisplayNameFor(model => model.FlgAtleta)
+                    @Html.CheckBox("FlgAtleta", Model?.FlgAtleta ?? false, new { @class = "form-check-input" }) @Html.DisplayNameFor(model => model.FlgAtleta)
                 </label>
             </div>
 
             <div class="form-group form-check">
                 <label class="form-check-label">
-                    <input class="form-check-input" asp-for="FlgGestante" /> @Html.DisplayNameFor(model => model.FlgGestante)
+                    @Html.CheckBox("FlgGestante", Model?.FlgGestante ?? false, new { @class = "form-check-input" }) @Html.DisplayNameFor(model => model.FlgGestante)
                 </label>
             </div>
             <div class="form-group">
@@ -119,3 +125,8 @@
 <div>
     <a asp-action="Index">Voltar</a>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/state-cities.js" asp-append-version="true"></script>
+}

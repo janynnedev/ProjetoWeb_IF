@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Projeto1_IF.Data;
 using Projeto1_IF.Models;
+using Projeto1_IF.Services;
+using Projeto1_IF.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,10 +16,18 @@ builder.Services.AddDbContext<db_IFContext>(options =>
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = false)
+    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
+builder.Services.AddScoped<ICurrentProfessionalService, CurrentProfessionalService>();
+builder.Services.AddScoped<LocationService>();
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    await AppRoleInitializer.InitializeAsync(scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>());
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

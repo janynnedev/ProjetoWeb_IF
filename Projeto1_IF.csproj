@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <DefaultItemExcludes>$(DefaultItemExcludes);tools/**</DefaultItemExcludes>
     <UserSecretsId>aspnet-Projeto1_IF-33e0a4a7-c136-448f-9c94-3a1050bd4ed3</UserSecretsId>
   </PropertyGroup>
 
